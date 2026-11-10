@@ -1,0 +1,180 @@
+
+<h2 class="sr-only">Mockup do dashboard de monitoramento de corrente para o TCC FATEC</h2>
+
+<div style="padding: 1rem 0; font-family: var(--font-sans);">
+
+  <!-- Header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+      <div style="font-size: 18px; font-weight: 500; color: var(--text-primary);">Monitoramento de tamboreadora</div>
+      <div style="font-size: 13px; color: var(--text-secondary);">TCC FATEC — Sistema IIoT</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #27AE60;"></div>
+      <span style="font-size: 13px; color: var(--text-secondary);">ESP32 conectado</span>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div style="background: var(--surface-1); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 1.5rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <span style="font-size: 13px; color: var(--text-secondary); margin-right: 4px;"><i class="ti ti-filter" aria-hidden="true"></i> Filtrar por:</span>
+    <button style="background: var(--fill-accent); color: var(--on-accent); border: none; border-radius: var(--radius); padding: 4px 14px; font-size: 13px; cursor: pointer;">Hoje</button>
+    <button style="border-radius: var(--radius); padding: 4px 14px; font-size: 13px; cursor: pointer;">7 dias</button>
+    <button style="border-radius: var(--radius); padding: 4px 14px; font-size: 13px; cursor: pointer;">Mês</button>
+    <button style="border-radius: var(--radius); padding: 4px 14px; font-size: 13px; cursor: pointer;">Ano</button>
+    <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+      <input type="date" style="font-size: 13px; padding: 4px 8px; border-radius: var(--radius); border: 0.5px solid var(--border);" />
+      <span style="font-size: 13px; color: var(--text-muted);">até</span>
+      <input type="date" style="font-size: 13px; padding: 4px 8px; border-radius: var(--radius); border: 0.5px solid var(--border);" />
+    </div>
+  </div>
+
+  <!-- Cards de métricas -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 1.5rem;">
+    <div style="background: var(--surface-1); border-radius: var(--radius); padding: 1rem;">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Corrente atual</div>
+      <div style="font-size: 22px; font-weight: 500; color: var(--text-primary);">0.262 A</div>
+      <div style="font-size: 11px; color: #27AE60; margin-top: 2px;">● Normal</div>
+    </div>
+    <div style="background: var(--surface-1); border-radius: var(--radius); padding: 1rem;">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Média (5 min)</div>
+      <div style="font-size: 22px; font-weight: 500; color: var(--text-primary);">0.261 A</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Ref: 0.260 A</div>
+    </div>
+    <div style="background: var(--surface-1); border-radius: var(--radius); padding: 1rem;">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Desvio padrão</div>
+      <div style="font-size: 22px; font-weight: 500; color: var(--text-primary);">0.0021</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">σ da janela atual</div>
+    </div>
+    <div style="background: var(--surface-1); border-radius: var(--radius); padding: 1rem;">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Anomalias hoje</div>
+      <div style="font-size: 22px; font-weight: 500; color: #E24B4A;">3</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">↑ 1 vs ontem</div>
+    </div>
+    <div style="background: var(--surface-1); border-radius: var(--radius); padding: 1rem;">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Tempo operando</div>
+      <div style="font-size: 22px; font-weight: 500; color: var(--text-primary);">6h 42m</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Hoje</div>
+    </div>
+  </div>
+
+  <!-- Gráfico simulado -->
+  <div style="background: var(--surface-1); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+    <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 12px;">Corrente ao longo do tempo</div>
+    <svg viewBox="0 0 620 160" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+      <!-- Faixa normal -->
+      <rect x="0" y="55" width="620" height="40" fill="#27AE6022" rx="0"/>
+      <!-- Linha de referência -->
+      <line x1="0" y1="75" x2="620" y2="75" stroke="#27AE60" stroke-width="1" stroke-dasharray="4,3"/>
+      <!-- Linha de corrente -->
+      <polyline points="0,78 60,74 120,76 180,72 240,80 300,30 360,73 420,75 480,71 540,77 600,74"
+        fill="none" stroke="#378ADD" stroke-width="2" stroke-linejoin="round"/>
+      <!-- Ponto de anomalia -->
+      <circle cx="300" cy="30" r="5" fill="#E24B4A"/>
+      <!-- Labels eixo Y -->
+      <text x="4" y="50" font-size="10" fill="#888">0.270</text>
+      <text x="4" y="78" font-size="10" fill="#27AE60">0.262</text>
+      <text x="4" y="100" font-size="10" fill="#888">0.250</text>
+      <!-- Labels eixo X -->
+      <text x="0" y="155" font-size="10" fill="#888">08:00</text>
+      <text x="90" y="155" font-size="10" fill="#888">09:00</text>
+      <text x="180" y="155" font-size="10" fill="#888">10:00</text>
+      <text x="270" y="155" font-size="10" fill="#888">11:00</text>
+      <text x="360" y="155" font-size="10" fill="#888">12:00</text>
+      <text x="450" y="155" font-size="10" fill="#888">13:00</text>
+      <text x="540" y="155" font-size="10" fill="#888">14:00</text>
+      <!-- Legenda -->
+      <rect x="460" y="8" width="10" height="10" fill="#27AE6022" rx="2"/>
+      <text x="474" y="17" font-size="10" fill="#888">Faixa normal</text>
+      <line x1="460" y1="28" x2="470" y2="28" stroke="#27AE60" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="474" y="32" font-size="10" fill="#888">Referência</text>
+      <line x1="460" y1="44" x2="470" y2="44" stroke="#378ADD" stroke-width="2"/>
+      <text x="474" y="48" font-size="10" fill="#888">Corrente</text>
+      <circle cx="465" cy="58" r="4" fill="#E24B4A"/>
+      <text x="474" y="62" font-size="10" fill="#888">Anomalia</text>
+    </svg>
+  </div>
+
+  <!-- Distribuição por nível + Tabela de anomalias -->
+  <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px;">
+
+    <!-- Distribuição -->
+    <div style="background: var(--surface-1); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem;">
+      <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 12px;">Distribuição por nível</div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px;">
+            <span>Verde — normal</span><span>87%</span>
+          </div>
+          <div style="background: var(--border); border-radius: 4px; height: 6px;">
+            <div style="width: 87%; background: #27AE60; height: 6px; border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px;">
+            <span>Amarelo</span><span>8%</span>
+          </div>
+          <div style="background: var(--border); border-radius: 4px; height: 6px;">
+            <div style="width: 8%; background: #F1C40F; height: 6px; border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px;">
+            <span>Laranja</span><span>3%</span>
+          </div>
+          <div style="background: var(--border); border-radius: 4px; height: 6px;">
+            <div style="width: 3%; background: #E67E22; height: 6px; border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px;">
+            <span>Vermelho</span><span>2%</span>
+          </div>
+          <div style="background: var(--border); border-radius: 4px; height: 6px;">
+            <div style="width: 2%; background: #E24B4A; height: 6px; border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 3px;">
+            <span>Desligada</span><span>0%</span>
+          </div>
+          <div style="background: var(--border); border-radius: 4px; height: 6px;">
+            <div style="width: 0%; background: #888; height: 6px; border-radius: 4px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela de anomalias -->
+    <div style="background: var(--surface-1); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem;">
+      <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 12px;">Últimas anomalias</div>
+      <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 0.5px solid var(--border);">
+            <th style="text-align: left; color: var(--text-muted); font-weight: 400; padding-bottom: 6px;">Data/Hora</th>
+            <th style="text-align: left; color: var(--text-muted); font-weight: 400; padding-bottom: 6px;">Corrente</th>
+            <th style="text-align: left; color: var(--text-muted); font-weight: 400; padding-bottom: 6px;">Nível</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 0.5px solid var(--border);">
+            <td style="padding: 6px 0; color: var(--text-secondary);">01/08 11:23</td>
+            <td style="padding: 6px 0; color: var(--text-primary);">0.291 A</td>
+            <td><span style="background: #FCEBEB; color: #A32D2D; font-size: 11px; padding: 2px 8px; border-radius: var(--radius);">Vermelho alto</span></td>
+          </tr>
+          <tr style="border-bottom: 0.5px solid var(--border);">
+            <td style="padding: 6px 0; color: var(--text-secondary);">01/08 09:47</td>
+            <td style="padding: 6px 0; color: var(--text-primary);">0.278 A</td>
+            <td><span style="background: #FAECE7; color: #993C1D; font-size: 11px; padding: 2px 8px; border-radius: var(--radius);">Laranja alto</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: var(--text-secondary);">31/07 15:12</td>
+            <td style="padding: 6px 0; color: var(--text-primary);">0.241 A</td>
+            <td><span style="background: #FAEEDA; color: #854F0B; font-size: 11px; padding: 2px 8px; border-radius: var(--radius);">Amarelo baixo</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>

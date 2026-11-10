@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monitoramento inteligente do motor de uma máquina CNC com TinyML</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d2228;--mut:#5b6570;--card:#fff;--line:#d9dde2;--acc:#0b6b5c;--acc2:#e7f3f0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181c;--fg:#e8ebee;--mut:#9aa5b0;--card:#1c2228;--line:#333c45;--acc:#4fc3ad;--acc2:#183832}}
+:root[data-theme="dark"]{--bg:#14181c;--fg:#e8ebee;--mut:#9aa5b0;--card:#1c2228;--line:#333c45;--acc:#4fc3ad;--acc2:#183832}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 18px 48px}
+h1{font-size:1.65rem;line-height:1.25;margin:.2em 0 .3em}
+h2{font-size:1.2rem;margin:2em 0 .5em;padding-bottom:.25em;border-bottom:2px solid var(--acc);color:var(--acc)}
+p,li{margin:.5em 0}
+.sub{color:var(--mut);margin:0}
+.box{background:var(--acc2);border-left:4px solid var(--acc);padding:10px 14px;border-radius:6px;margin:1em 0}
+.box b{color:var(--acc)}
+.wrap{overflow-x:auto;margin:1em 0}
+table{border-collapse:collapse;width:100%;min-width:480px;background:var(--card);font-size:.93rem}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--acc2)}
+small,.ref{color:var(--mut);font-size:.85rem}
+dt{font-weight:700;margin-top:.7em}
+dd{margin:0 0 0 .2em;color:var(--mut)}
+h3{font-size:1.02rem;margin:1.3em 0 .2em}svg#rn{width:100%;height:auto;display:block;max-width:640px;margin:1em auto 0}.ln{stroke:var(--line);stroke-width:.7}.nd{fill:var(--acc2);stroke:var(--acc);stroke-width:1.5}.tx{fill:var(--fg);font:15px system-ui,sans-serif;text-anchor:middle}
+svg.fig{width:100%;height:auto;display:block;max-width:640px;margin:1em auto 0}.bx{fill:none;stroke:var(--line)}.bx2{fill:var(--acc2);stroke:var(--acc);stroke-width:1.5}.ln2{stroke:var(--mut);stroke-width:1.6}.ac{stroke:var(--acc);stroke-width:2;fill:none}.af{fill:var(--acc)}.tx.s{font-size:14px}.tx.e{text-anchor:end}.tx.l{text-anchor:start}
+</style>
+</head>
+<body>
+<main>
+<p class="sub">Projeto de TCC · FATEC Adib Moisés Dib</p>
+<h1>Monitoramento inteligente do motor de uma máquina CNC com TinyML</h1>
+<p class="sub">Explicação simples de o que o projeto faz, por que coleta dados e como o modelo aprende.</p>
+
+<h2>1. Em resumo</h2>
+<p>Instalamos um pequeno computador (ESP32) em uma máquina CNC para medir a eletricidade que o motor consome. Com esses números, um classificador baseado em rede neural (TinyML), executado em inferência embarcada no próprio ESP32, identifica em que estado a máquina está: parada, girando sem cortar, cortando ou sob esforço excessivo.</p>
+
+<h2>2. Para que coletar esses dados?</h2>
+<p>Hoje a máquina não tem nenhum monitoramento automático: só percebemos um problema quando ele já aconteceu. Medindo a corrente do motor o tempo todo, conseguimos saber quanto tempo ele trabalha em cada condição e avisar quando ele sai da faixa segura. Esse é o primeiro passo para a manutenção preditiva e para entender o consumo de energia.</p>
+
+<h2>3. O rótulo: o que o manual do motor diz</h2>
+<p>Para o computador aprender, alguém precisa dizer o que é "normal" e o que não é. Esse "gabarito" se chama <b>rótulo</b>. O nosso vem do manual (folha de dados) do fabricante do motor, a WEG (W22 IR3 Premium, 3 cv, 4 polos, código 11397215), que informa em que condições o motor foi projetado para trabalhar:</p>
+<div class="wrap"><table>
+<tr><th>Dado do fabricante</th><th>Valor</th><th>Fonte</th></tr>
+<tr><td>Corrente nominal (plena carga)</td><td>4,78 A em 380 V</td><td class="ref">Folha de dados, p. 1/5</td></tr>
+<tr><td>Corrente a vazio (girando sem carga)</td><td>2,66 A em 380 V</td><td class="ref">Folha de dados, p. 1/5</td></tr>
+<tr><td>Fator de serviço (sobrecarga tolerada)</td><td>1,25</td><td class="ref">Folha de dados, p. 1/5</td></tr>
+<tr><td>Rotação nominal</td><td>1745 rpm</td><td class="ref">Folha de dados, p. 1/5</td></tr>
+</table></div>
+<p>A partir da corrente nominal, definimos cinco estados (valores para 380 V):</p>
+<div class="wrap"><table>
+<tr><th>Estado</th><th>Corrente</th><th>Significado</th></tr>
+<tr><td>PARADA</td><td>≈ 0 A</td><td>Motor desligado</td></tr>
+<tr><td>VAZIO</td><td>até 4,0 A (≈ 84% da nominal)</td><td>Motor girando, sem cortar a peça</td></tr>
+<tr><td>USINANDO</td><td>4,0 a 5,3 A</td><td>Cortando a peça, esforço normal</td></tr>
+<tr><td>SOBRECARGA</td><td>acima de 5,3 A (&gt; 110%)</td><td>Esforço acima do nominal</td></tr>
+<tr><td>CRÍTICO</td><td>7,2 A ou mais (≥ 150%)</td><td>Risco de dano ao motor</td></tr>
+</table></div>
+<p class="ref">O limite de 4 A entre vazio e usinando foi observado na própria máquina. As demais faixas foram definidas pelos autores a partir da corrente nominal da folha de dados.</p>
+
+<h2>4. Como o projeto funciona</h2>
+<ol>
+<li><b>Coleta:</b> o ESP32 lê tensão, corrente, potência, fator de potência, frequência e energia a cada 10 segundos e envia para uma planilha e para a nuvem.</li>
+<li><b>Preparação:</b> os dados saem da planilha em CSV e cada leitura recebe seu rótulo. Eles são brutos: antes do treino passam por seleção de variáveis e normalização z-score (seção 5).</li>
+<li><b>Treino no computador:</b> em ambiente controlado, usando Python, o modelo aprende a ligar os números aos rótulos.</li>
+<li><b>Exportação:</b> os números aprendidos (os "pesos") são copiados para o código do ESP32.</li>
+<li><b>Uso real:</b> o ESP32 roda o modelo sozinho, em tempo real, sem internet e sem computador, e informa o estado da máquina.</li>
+</ol>
+<div class="wrap"><table>
+<tr><th>Ferramenta</th><th>Para que serve</th></tr>
+<tr><td>ESP32 DevKit V1</td><td>Microcontrolador que lê os sensores e executa o modelo</td></tr>
+<tr><td>PZEM-004T v3.0</td><td>Medidor de tensão, corrente, potência e fator de potência</td></tr>
+<tr><td>Google Sheets + Apps Script</td><td>Guardam o histórico das leituras</td></tr>
+<tr><td>MQTT (HiveMQ) e Power BI</td><td>Envio em tempo real e painéis de visualização</td></tr>
+<tr><td>Python (NumPy, scikit-learn, TensorFlow/Keras)</td><td>Preparar os dados e treinar o modelo</td></tr>
+<tr><td>Arduino IDE</td><td>Escrever e gravar o programa no ESP32</td></tr>
+</table></div>
+
+<h2>5. Preparação dos dados: variáveis e z-score</h2>
+<p>Os dados exportados da planilha são <b>brutos</b>: têm unidades e escalas muito diferentes (potência em centenas de watts, fator de potência entre 0 e 1, corrente em poucos ampères). Por isso passam por duas etapas antes do treino.</p>
+<h3>Seleção de variáveis</h3>
+<p>O modelo rende mais com a <b>corrente</b> e com as variáveis que acompanham sua variação, que são as que carregam informação sobre o esforço do motor. Variáveis quase constantes não ajudam e, depois do z-score, teriam o ruído ampliado.</p>
+<div class="wrap"><table>
+<tr><th>Variável</th><th>Comportamento nos dados</th><th>Decisão</th></tr>
+<tr><td>Corrente</td><td>Varia bastante; reflete o esforço do motor</td><td>Usada</td></tr>
+<tr><td>Potência</td><td>Varia junto com a corrente</td><td>Usada</td></tr>
+<tr><td>Fator de potência</td><td>Varia bastante (correlação −0,93 com a corrente)</td><td>Usado</td></tr>
+<tr><td>Tensão</td><td>Varia pouco (correlação −0,22 com a corrente)</td><td>Descartada</td></tr>
+<tr><td>Frequência</td><td>Praticamente constante</td><td>Descartada</td></tr>
+<tr><td>Energia (kWh)</td><td>Contador acumulado: só cresce e mede tempo, não estado</td><td>Descartada</td></tr>
+</table></div>
+<p>Além das três variáveis usadas, calculam-se a variação da corrente entre leituras e a média e o desvio-padrão da corrente na janela móvel de 10 leituras, somando <b>6 entradas</b>.</p>
+<h3>Normalização z-score</h3>
+<p>Cada variável é convertida por <b>z = (x − μ) / σ</b>, em que μ é a média e σ o desvio-padrão. Sem isso, a variável de maior escala domina o cálculo do gradiente: seus pesos mudam mais rápido e o modelo passa a ser "puxado" por ela, o que não é o desejado. Com o z-score, todas ficam com média 0 e desvio 1 e contribuem de forma equilibrada.</p>
+<p class="ref">Exemplo ilustrativo: corrente de 4,5 A (μ = 3,8; σ = 0,5) resulta em z = 1,40; potência de 1.900 W (μ = 1.400; σ = 350) resulta em z = 1,43. Valores brutos muito diferentes passam a ter a mesma ordem de grandeza.</p>
+<ul>
+<li>μ e σ são calculados <b>apenas no conjunto de treino</b> e gravados no firmware como constantes.</li>
+<li>O ESP32 aplica a mesma conta em cada leitura nova, antes da inferência.</li>
+<li>Os valores de z são limitados a ±8 para evitar que um ponto extremo distorça a rede.</li>
+</ul>
+<h2>6. O modelo: rede neural MLP</h2>
+<p>O modelo é um <b>Perceptron Multicamadas (MLP)</b> do tipo feedforward, treinado de forma <b>supervisionada</b>: cada leitura tem um rótulo e o algoritmo minimiza o erro entre a saída da rede e esse rótulo. A estrutura adotada é <b>6 → 8 → 4 → 3</b>, com 107 parâmetros treináveis (pesos e vieses), pequena o bastante para o ESP32.</p>
+<svg id="rn" viewBox="0 0 640 330" role="img" aria-label="Diagrama da rede neural 6, 8, 4 e 3 neurônios"></svg>
+<p class="ref">Cada círculo é um neurônio e cada linha é um peso. Entradas (normalizadas por z-score): corrente, potência, fator de potência, variação da corrente e média e desvio-padrão da corrente na janela móvel de 10 leituras. Saídas: PARADA, VAZIO e USINANDO; SOBRECARGA e CRÍTICO ficam por limiar fixo no firmware.</p>
+<p>Cada neurônio calcula <b>z = Σ(wᵢ·xᵢ) + b</b> e aplica uma função de ativação, <b>a = f(z)</b>. Uma camada inteira é <b>a = f(W·x + b)</b>, uma multiplicação matricial. É só isso que o ESP32 executa na inferência (propagação direta).</p>
+<h3>Função de ativação</h3>
+<p>Cada neurônio faz duas operações. Primeiro a <b>soma ponderada</b>, z = w₁x₁ + w₂x₂ + w₃x₃ + b, que é a equação de uma reta (w é a inclinação e b o deslocamento). Depois aplica a <b>ativação</b>, a = f(z), que transforma essa reta em uma curva.</p>
+<svg id="fa" class="fig" viewBox="0 0 640 175" role="img" aria-label="Neurônio: entradas, pesos, soma com bias, ativação e saída"></svg>
+<p>Sem a ativação, várias camadas somadas continuariam sendo uma única reta, e a rede não conseguiria separar estados como VAZIO e USINANDO. A curva permite "dobrar" a fronteira entre eles.</p>
+<svg id="fb" class="fig" viewBox="0 0 640 235" role="img" aria-label="Curvas ReLU, sigmoide e tanh"></svg>
+<p>A sigmoide (0 a 1) e a tanh (−1 a 1) achatam nas pontas: ali a curva é quase horizontal, a derivada é próxima de zero e o aprendizado emperra. A <b>ReLU</b>, f(z) = max(0, z), vale zero para valores negativos e é uma reta para os positivos; é mais barata (uma comparação) e não achata. Foi a escolhida para as camadas ocultas.</p>
+<p>Na saída usa-se a <b>softmax</b>, que converte as pontuações em probabilidades que somam 100%. Exemplo: pontuações USINANDO 2,0, VAZIO 1,0 e PARADA 0,1 viram 66%, 24% e 10%. O estado informado é o de maior probabilidade.</p>
+<h3>Função de perda</h3>
+<p>Depois de cada previsão, a rede precisa de um número que diga o quão errada ela está: a <b>função de perda</b>. Ela responde (1) houve erro? (2) de que tamanho? e serve de guia para (3) o aprendizado. Em problemas de valor contínuo usam-se o MAE (erro absoluto, peso proporcional ao erro), o MSE (erro ao quadrado, que pune muito os erros grandes, mas é sensível a outliers) e o Huber (MSE para erros pequenos, MAE para grandes).</p>
+<p>Como aqui o problema é de <b>classificação</b>, usamos a <b>entropia cruzada</b> (cross entropy), extensão da binary cross entropy para mais de duas classes: L = −Σ yₖ·log(ŷₖ). Como o rótulo correto vale 1 e os demais 0, a perda se reduz a <b>−ln(probabilidade dada à classe certa)</b>.</p>
+<svg id="fc" class="fig" viewBox="0 0 640 235" role="img" aria-label="Curva da entropia cruzada comparada ao erro quadrático"></svg>
+<p>Se a rede dá 90% à classe correta, L = −ln 0,9 = 0,11: quase nenhuma punição. Se dá 10%, L = −ln 0,1 = 2,30: punição pesada. A curva dispara quando a probabilidade da classe certa tende a zero, então a rede é corrigida com força quando erra com confiança, o que o erro quadrático não faz.</p>
+<h3>Backpropagation</h3>
+<p>Backpropagation é o <b>treino da rede</b>: ela aprende com os erros. A perda L depende de todos os pesos, e o objetivo é achar os pesos que a tornam mínima. Em cada iteração:</p>
+<svg id="fd" class="fig" viewBox="0 0 640 125" role="img" aria-label="Fluxo da propagação direta e do backpropagation"></svg>
+<ol>
+<li><b>Propagação direta:</b> a rede calcula a previsão ŷ.</li>
+<li><b>Perda:</b> compara ŷ com o rótulo e calcula L.</li>
+<li><b>Backpropagation:</b> pela regra da cadeia, calcula a inclinação ∂L/∂w (a derivada, ou reta tangente) de cada peso, da saída até a entrada.</li>
+<li><b>Atualização (descida do gradiente):</b> w ← w − η·∂L/∂w, andando no sentido em que a perda diminui.</li>
+</ol>
+<svg id="fg" class="fig" viewBox="0 0 640 235" role="img" aria-label="Descida do gradiente sobre a parábola da perda"></svg>
+<p>No exemplo, L = (w − 2)² e η = 0,3: o peso vai de 0 para 1,2, 1,68 e 1,87, aproximando-se do mínimo em w = 2. A <b>taxa de aprendizado</b> η é o tamanho do passo: pequena demais deixa o treino lento e ele pode acabar sem chegar ao mínimo; grande demais salta por cima do mínimo e a perda pode até subir. O <b>Adam</b> ajusta η para cada peso durante o treino, partindo de 0,001. O ciclo se repete por épocas e termina após um número fixo de épocas ou ao atingir uma tolerância (por exemplo, uma acurácia), valendo o que ocorrer primeiro.</p>
+<script>
+(function(){var N='http://www.w3.org/2000/svg';
+function P(id){var s=document.getElementById(id);return{mk:function(t,a,x){var e=document.createElementNS(N,t);for(var q in a)e.setAttribute(q,a[q]);if(x!=null)e.textContent=x;s.appendChild(e);return e}}}
+function ax(p,xa,ya,xt,yt,xl,yl){var X=function(x){return 60+(x-xa[0])/(xa[1]-xa[0])*520},Y=function(y){return 190-(y-ya[0])/(ya[1]-ya[0])*170};
+p.mk('rect',{x:60,y:20,width:520,height:170,'class':'bx'});
+xt.forEach(function(v){p.mk('line',{x1:X(v),y1:20,x2:X(v),y2:190,'class':'ln'});p.mk('text',{x:X(v),y:208,'class':'tx s'},String(v).replace('.',','))});
+yt.forEach(function(v){p.mk('line',{x1:60,y1:Y(v),x2:580,y2:Y(v),'class':'ln'});p.mk('text',{x:54,y:Y(v)+5,'class':'tx s e'},String(v).replace('.',','))});
+p.mk('text',{x:320,y:228,'class':'tx s'},xl);p.mk('text',{x:14,y:105,'class':'tx s',transform:'rotate(-90 14 105)'},yl);return{X:X,Y:Y}}
+function cv(p,m,xa,f,c){var d='',i,x;for(i=0;i<=120;i++){x=xa[0]+(xa[1]-xa[0])*i/120;d+=(i?'L':'M')+m.X(x).toFixed(1)+' '+m.Y(f(x)).toFixed(1)}p.mk('path',{d:d,fill:'none',stroke:c,'stroke-width':2.4})}
+function ar(p,x1,y,x2){p.mk('line',{x1:x1,y1:y,x2:x2,y2:y,'class':'ac'});p.mk('polygon',{points:x2+','+y+' '+(x2-9)+','+(y-5)+' '+(x2-9)+','+(y+5),'class':'af'})}
+function lg(p,x,y,c,t){p.mk('text',{x:x,y:y,fill:c,'class':'tx s l'},t)}
+var a=P('fa'),ys=[40,90,140],lb=['corrente x₁','potência x₂','Pf x₃'],w=['w₁','w₂','w₃'];
+ys.forEach(function(y,i){a.mk('text',{x:8,y:y+5,'class':'tx s l'},lb[i]);a.mk('circle',{cx:135,cy:y,r:9,'class':'nd'});a.mk('line',{x1:144,y1:y,x2:272,y2:90,'class':'ln2'});a.mk('text',{x:200,y:y+(90-y)*0.44-7,'class':'tx s'},w[i])});
+a.mk('circle',{cx:298,cy:90,r:26,'class':'nd'});a.mk('text',{x:298,y:96,'class':'tx'},'Σ + b');ar(a,324,90,372);a.mk('text',{x:348,y:78,'class':'tx s'},'z');
+a.mk('rect',{x:372,y:66,width:84,height:48,rx:6,'class':'bx2'});a.mk('text',{x:414,y:96,'class':'tx'},'f(z)');ar(a,456,90,520);a.mk('text',{x:528,y:95,'class':'tx l'},'a');a.mk('text',{x:298,y:160,'class':'tx s'},'soma ponderada + bias');a.mk('text',{x:414,y:160,'class':'tx s'},'ativação');
+var b=P('fb'),mb=ax(b,[-4,4],[-1.5,4],[-4,-2,0,2,4],[-1,0,1,2,3,4],'z (entrada da ativação)','a = f(z)');
+cv(b,mb,[-4,4],function(z){return Math.max(0,z)},'#0b9b84');cv(b,mb,[-4,4],function(z){return 1/(1+Math.exp(-z))},'#d9822b');cv(b,mb,[-4,4],Math.tanh,'#5b7fe0');
+lg(b,72,40,'#0b9b84','ReLU');lg(b,72,58,'#d9822b','sigmoide');lg(b,72,76,'#5b7fe0','tanh');
+var c=P('fc'),mc=ax(c,[0,1],[0,4],[0,0.25,0.5,0.75,1],[0,1,2,3,4],'probabilidade dada à classe correta (p)','perda');
+cv(c,mc,[0,1],function(q){return -Math.log(Math.max(q,0.02))},'#d9822b');cv(c,mc,[0,1],function(q){return (1-q)*(1-q)},'#5b7fe0');
+lg(c,300,40,'#d9822b','entropia cruzada: −ln(p)');lg(c,300,58,'#5b7fe0','erro quadrático: (1 − p)²');
+[[0.9,0.105,'0,11'],[0.1,2.303,'2,30']].forEach(function(d){c.mk('circle',{cx:mc.X(d[0]),cy:mc.Y(d[1]),r:5,fill:'#d9822b'});c.mk('text',{x:mc.X(d[0])+10,y:mc.Y(d[1])-8,'class':'tx s l'},d[2])});
+var d=P('fd'),bx=[10,170,330,490],bt=['Entradas x','Rede (w, b)','Previsão ŷ','Perda L'];
+bx.forEach(function(x,i){d.mk('rect',{x:x,y:20,width:130,height:44,rx:6,'class':'bx2'});d.mk('text',{x:x+65,y:48,'class':'tx'},bt[i]);if(i<3)ar(d,x+130,42,bx[i+1])});
+d.mk('text',{x:320,y:13,'class':'tx s'},'propagação direta');d.mk('line',{x1:555,y1:64,x2:555,y2:92,'class':'ac'});d.mk('line',{x1:555,y1:92,x2:235,y2:92,'class':'ac'});d.mk('line',{x1:235,y1:92,x2:235,y2:74,'class':'ac'});d.mk('polygon',{points:'235,66 230,76 240,76','class':'af'});
+d.mk('text',{x:395,y:115,'class':'tx s'},'backpropagation: calcula ∂L/∂w e atualiza w ← w − η·∂L/∂w');
+var g=P('fg'),mg=ax(g,[-0.5,4.5],[0,7],[0,1,2,3,4],[0,2,4,6],'peso w','perda L');
+cv(g,mg,[-0.5,4.5],function(q){return (q-2)*(q-2)},'#5b7fe0');
+[0,1.2,1.68,1.872].forEach(function(q,i){g.mk('circle',{cx:mg.X(q),cy:mg.Y((q-2)*(q-2)),r:6,fill:'#d9822b'});g.mk('text',{x:mg.X(q)+9,y:mg.Y((q-2)*(q-2))-9,'class':'tx s l'},'w'+'₀₁₂₃'.charAt(i))});
+g.mk('text',{x:mg.X(2)+10,y:mg.Y(0)-8,'class':'tx s l'},'mínimo (w = 2)');
+})();
+</script>
+<div class="box"><b>O que é uma época?</b> É uma passada completa por todo o conjunto de treino. Os dados são divididos em lotes (mini-batches) e, a cada lote, ocorrem propagação direta, cálculo da perda, backpropagation e atualização dos pesos. A perda de treino cai a cada época; para evitar sobreajuste (overfitting), monitora-se a perda em um conjunto de validação e aplica-se parada antecipada (early stopping) quando ela deixa de melhorar.</div>
+<div class="wrap"><table>
+<tr><th>Item</th><th>Escolhido</th><th>Alternativas</th><th>Motivo</th></tr>
+<tr><td>Arquitetura</td><td>MLP 6→8→4→3</td><td>Redes maiores, LSTM</td><td>Dados tabulares, cabe no ESP32</td></tr>
+<tr><td>Ativação oculta</td><td>ReLU</td><td>Sigmoide, tanh</td><td>Baixo custo, sem saturação</td></tr>
+<tr><td>Ativação de saída</td><td>Softmax</td><td>Sigmoide</td><td>Classes mutuamente exclusivas</td></tr>
+<tr><td>Função de perda</td><td>Entropia cruzada categórica</td><td>MSE</td><td>Classificação multiclasse</td></tr>
+<tr><td>Otimizador</td><td>Adam (η = 0,001)</td><td>SGD</td><td>Convergência rápida</td></tr>
+<tr><td>Execução</td><td>Treino no PC, inferência no ESP32</td><td>Treino embarcado</td><td>Limite de memória e processamento</td></tr>
+</table></div>
+<script>
+(function(){var s=document.getElementById('rn'),L=[6,8,4,3],X=[70,230,400,565],T=['Entrada','Oculta 1','Oculta 2','Saída'],U=['6 entradas','8 · ReLU','4 · ReLU','3 · softmax'],N='http://www.w3.org/2000/svg',P=[],l,i;
+function mk(t,a,x){var e=document.createElementNS(N,t);for(var q in a)e.setAttribute(q,a[q]);if(x)e.textContent=x;s.appendChild(e)}
+for(l=0;l<4;l++){P[l]=[];for(i=0;i<L[l];i++)P[l].push([X[l],55+240*(i+1)/(L[l]+1)])}
+for(l=0;l<3;l++)P[l].forEach(function(a){P[l+1].forEach(function(b){mk('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],'class':'ln'})})});
+for(l=0;l<4;l++){P[l].forEach(function(a){mk('circle',{cx:a[0],cy:a[1],r:9,'class':'nd'})});mk('text',{x:X[l],y:24,'class':'tx'},T[l]);mk('text',{x:X[l],y:322,'class':'tx'},U[l])}
+})();
+</script>
+<h2>7. Resultados esperados</h2>
+<ul>
+<li>O ESP32 classificar cada leitura no estado correto, em tempo real.</li>
+<li>Metas de desempenho: acurácia ≥ 95% no conjunto de teste e latência de inferência inferior a 1 ms.</li>
+<li>Os estados raros (SOBRECARGA e CRÍTICO), se não tiverem exemplos suficientes, serão tratados por um alarme de limite fixo no programa.</li>
+</ul>
+
+<h2>8. Limitações</h2>
+<ul>
+<li>Os dados cobrem poucos dias de operação; mais tempo de coleta deixa o modelo mais confiável.</li>
+<li>Como o rótulo vem de faixas de corrente, o modelo reproduz uma regra; seu ganho está em decidir com mais estabilidade, usando também potência e tendência.</li>
+</ul>
+
+<h2>9. Glossário</h2>
+<dl>
+<dt>TinyML</dt><dd>Aprendizado de máquina que roda em equipamentos pequenos e baratos.</dd>
+<dt>Rótulo</dt><dd>A resposta certa de cada exemplo (o estado da máquina).</dd>
+<dt>Variável de entrada</dt><dd>Cada número que o modelo recebe para decidir (corrente, potência...).</dd>
+<dt>Peso</dt><dd>Número ajustado no treino que define como o modelo decide.</dd>
+<dt>Inferência</dt><dd>O modelo já treinado dando a resposta para uma leitura nova.</dd>
+<dt>Função de ativação</dt><dd>Função não linear aplicada à saída de cada neurônio (aqui, ReLU e softmax).</dd>
+<dt>Função de perda</dt><dd>Medida do erro entre previsão e rótulo, que o treino minimiza (aqui, entropia cruzada).</dd>
+<dt>Backpropagation</dt><dd>Algoritmo que calcula o gradiente do erro em cada peso, da saída para a entrada.</dd>
+<dt>Época</dt><dd>Uma passada completa da rede por todo o conjunto de treino.</dd>
+<dt>Normalização z-score</dt><dd>Conversão de cada variável para média 0 e desvio-padrão 1, para que todas tenham o mesmo peso no treino.</dd>
+<dt>CSV</dt><dd>Arquivo de texto simples com os dados em linhas e colunas.</dd>
+</dl>
+
+<h2>Fontes</h2>
+<p class="ref">WEG, Folha de Dados do motor W22 IR3 Premium 3 cv 4P, código 11397215, p. 1/5. Schmersal, Manual do inversor Praxi 20 (2023), sinais de monitoramento p. 69 e registradores Modbus p. 158 (numeração impressa).</p>
+</main>
+</body>
+</html>

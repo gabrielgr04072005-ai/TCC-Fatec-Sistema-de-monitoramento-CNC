@@ -1,0 +1,18 @@
+MLP 6-8-4-3 | parametros: 107 | epocas: 205
+
+TREINO: acuracia = 99.53% (1498 amostras)
+   PARADA    n=   3  recall=100.00%  precisao=100.00%
+   VAZIO     n=1319  recall= 99.47%  precisao=100.00%
+   USINANDO  n= 176  recall=100.00%  precisao= 96.17%
+VALIDACAO: acuracia = 99.14% (350 amostras)
+   PARADA    n=   0  recall=   nan%  precisao=   nan%
+   VAZIO     n= 300  recall= 99.33%  precisao= 99.67%
+   USINANDO  n=  50  recall= 98.00%  precisao= 96.08%
+TESTE: acuracia = 99.69% (325 amostras)
+   PARADA    n=   0  recall=   nan%  precisao=   nan%
+   VAZIO     n= 300  recall= 99.67%  precisao=100.00%
+   USINANDO  n=  25  recall=100.00%  precisao= 96.15%
+   matriz de confusao (linhas = real, colunas = previsto ['PARADA', 'VAZIO', 'USINANDO']):
+     [0, 0, 0]
+     [0, 299, 1]
+     [0, 0, 25]
